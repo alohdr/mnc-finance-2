@@ -3,43 +3,48 @@ package services
 import (
 	"errors"
 	"github.com/google/uuid"
+	"mnc-finance/entity"
 	"mnc-finance/models"
+	"mnc-finance/queue"
 	"mnc-finance/repositories"
+	"time"
 )
 
 type TransactionService interface {
-	TopUp(userID uuid.UUID, amount float64, remarks string) (*models.Transaction, error)
-	Payment(userID uuid.UUID, amount float64, remarks string) (*models.Transaction, error)
-	Transfer(userID uuid.UUID, recipientID uuid.UUID, amount float64, remarks string) (*models.Transaction, error)
-	TransactionsReport(userID uuid.UUID) ([]models.Transaction, error)
+	TopUp(param *models.TopUp) (*entity.Transaction, error)
+	Payment(userID uuid.UUID, amount float64, remarks string) (*entity.Transaction, error)
+	Transfer(userID uuid.UUID, recipientID uuid.UUID, amount float64, remarks string) (*entity.Transaction, error)
+	TransactionsReport(userID uuid.UUID) ([]entity.Transaction, error)
 }
 
 type transactionService struct {
 	transactionRepository repositories.TransactionRepository
 	userRepository        repositories.UserRepository
+	queue                 queue.PublishDefinition
 }
 
-func NewTransactionService(transactionRepo repositories.TransactionRepository, userRepo repositories.UserRepository) TransactionService {
-	return &transactionService{transactionRepo, userRepo}
+func NewTransactionService(transactionRepo repositories.TransactionRepository, userRepo repositories.UserRepository, queue queue.PublishDefinition) TransactionService {
+	return &transactionService{transactionRepo, userRepo, queue}
 }
 
-func (s *transactionService) TopUp(userID uuid.UUID, amount float64, remarks string) (*models.Transaction, error) {
-	user, err := s.userRepository.FindByPhoneNumber(userID.String())
+func (s *transactionService) TopUp(param *models.TopUp) (*entity.Transaction, error) {
+	user, err := s.userRepository.FindByPhoneNumber(param.UserID)
 	if err != nil {
 		return nil, err
 	}
 
-	transaction := &models.Transaction{
+	transaction := &entity.Transaction{
 		ID:            uuid.New(),
 		UserID:        user.ID,
 		Type:          "TopUp",
-		Amount:        amount,
-		Remarks:       remarks,
+		Amount:        param.Amount,
+		Remarks:       param.Remarks,
 		BalanceBefore: user.Balance,
-		BalanceAfter:  user.Balance + amount,
+		BalanceAfter:  user.Balance + param.Amount,
+		CreatedAt:     time.Now(),
 	}
 
-	user.Balance += amount
+	user.Balance += param.Amount
 	if err := s.userRepository.Update(user); err != nil {
 		return nil, err
 	}
@@ -51,7 +56,7 @@ func (s *transactionService) TopUp(userID uuid.UUID, amount float64, remarks str
 	return transaction, nil
 }
 
-func (s *transactionService) Payment(userID uuid.UUID, amount float64, remarks string) (*models.Transaction, error) {
+func (s *transactionService) Payment(userID uuid.UUID, amount float64, remarks string) (*entity.Transaction, error) {
 	user, err := s.userRepository.FindByPhoneNumber(userID.String())
 	if err != nil {
 		return nil, err
@@ -61,7 +66,7 @@ func (s *transactionService) Payment(userID uuid.UUID, amount float64, remarks s
 		return nil, errors.New("insufficient balance")
 	}
 
-	transaction := &models.Transaction{
+	transaction := &entity.Transaction{
 		ID:            uuid.New(),
 		UserID:        user.ID,
 		Type:          "Payment",
@@ -69,6 +74,7 @@ func (s *transactionService) Payment(userID uuid.UUID, amount float64, remarks s
 		Remarks:       remarks,
 		BalanceBefore: user.Balance,
 		BalanceAfter:  user.Balance - amount,
+		CreatedAt:     time.Now(),
 	}
 
 	user.Balance -= amount
@@ -83,14 +89,14 @@ func (s *transactionService) Payment(userID uuid.UUID, amount float64, remarks s
 	return transaction, nil
 }
 
-func (s *transactionService) Transfer(userID uuid.UUID, recipientID uuid.UUID, amount float64, remarks string) (*models.Transaction, error) {
+func (s *transactionService) Transfer(userID uuid.UUID, recipientID uuid.UUID, amount float64, remarks string) (*entity.Transaction, error) {
 	user, err := s.userRepository.FindByPhoneNumber(userID.String())
 	if err != nil {
 		return nil, err
 	}
 
 	if user.Balance < amount {
-		return nil, errors.New("insufficient balance")
+		return nil, errors.New("Balance is not enough")
 	}
 
 	recipient, err := s.userRepository.FindByPhoneNumber(recipientID.String())
@@ -98,7 +104,7 @@ func (s *transactionService) Transfer(userID uuid.UUID, recipientID uuid.UUID, a
 		return nil, errors.New("recipient not found")
 	}
 
-	transaction := &models.Transaction{
+	transaction := &entity.Transaction{
 		ID:            uuid.New(),
 		UserID:        user.ID,
 		Type:          "Transfer",
@@ -106,6 +112,7 @@ func (s *transactionService) Transfer(userID uuid.UUID, recipientID uuid.UUID, a
 		Remarks:       remarks,
 		BalanceBefore: user.Balance,
 		BalanceAfter:  user.Balance - amount,
+		CreatedAt:     time.Now(),
 	}
 
 	recipient.Balance += amount
@@ -125,6 +132,6 @@ func (s *transactionService) Transfer(userID uuid.UUID, recipientID uuid.UUID, a
 	return transaction, nil
 }
 
-func (s *transactionService) TransactionsReport(userID uuid.UUID) ([]models.Transaction, error) {
+func (s *transactionService) TransactionsReport(userID uuid.UUID) ([]entity.Transaction, error) {
 	return s.transactionRepository.FindByUserID(userID.String())
 }

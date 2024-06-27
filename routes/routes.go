@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"mnc-finance/config"
 	"mnc-finance/controllers"
+	"mnc-finance/queue"
 	"mnc-finance/repositories"
 	"mnc-finance/services"
 )
@@ -11,11 +12,15 @@ import (
 func SetupRoutes(router *gin.Engine) {
 	db := config.SetupDatabase()
 
+	mq := config.SetUpRabbitMQ()
+
 	userRepo := repositories.NewUserRepository(db)
 	transactionRepo := repositories.NewTransactionRepository(db)
 
+	rabbit := queue.NewPublishService(mq)
+
 	authService := services.NewAuthService(userRepo)
-	transactionService := services.NewTransactionService(transactionRepo, userRepo)
+	transactionService := services.NewTransactionService(transactionRepo, userRepo, rabbit)
 
 	authController := controllers.NewAuthController(authService)
 	transactionController := controllers.NewTransactionController(transactionService)
@@ -27,5 +32,5 @@ func SetupRoutes(router *gin.Engine) {
 	router.POST("/pay", transactionController.Payment)
 	router.POST("/transfer", transactionController.Transfer)
 	router.GET("/transactions", transactionController.TransactionsReport)
-	router.PUT("/profile", authController.UpdateProfile) // Assuming you have UpdateProfile in authController
+	router.PUT("/profile/:id", authController.UpdateProfile)
 }

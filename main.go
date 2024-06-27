@@ -2,13 +2,18 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"mnc-finance/config"
+	"github.com/joho/godotenv"
+	"log"
 	"mnc-finance/routes"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
 	router := gin.Default()
-	config.SetupDatabase()
 	routes.SetupRoutes(router)
 	router.Run(":8080")
 }

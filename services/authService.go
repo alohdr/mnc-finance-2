@@ -12,8 +12,9 @@ import (
 )
 
 type AuthService interface {
-	Register(user *models.UserRegister) (*entity.User, error)
-	Login(phoneNumber, pin string) (string, string, error)
+	Register(user *models.User) (*entity.User, error)
+	Login(param *models.Login) (string, string, error)
+	Update(param *models.User) (*entity.User, error)
 	RefreshToken(refreshToken string) (string, string, error)
 }
 
@@ -25,7 +26,7 @@ func NewAuthService(userRepo repositories.UserRepository) AuthService {
 	return &authService{userRepo}
 }
 
-func (s *authService) Register(user *models.UserRegister) (*entity.User, error) {
+func (s *authService) Register(user *models.User) (*entity.User, error) {
 	hashedPIN, err := bcrypt.GenerateFromPassword([]byte(user.PIN), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
@@ -47,13 +48,13 @@ func (s *authService) Register(user *models.UserRegister) (*entity.User, error) 
 	return param, nil
 }
 
-func (s *authService) Login(phoneNumber, pin string) (string, string, error) {
-	user, err := s.userRepository.FindByPhoneNumber(phoneNumber)
+func (s *authService) Login(param *models.Login) (string, string, error) {
+	user, err := s.userRepository.FindByPhoneNumber(param.PhoneNumber)
 	if err != nil {
 		return "", "", errors.New("phone number and PIN doesn’t match")
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PIN), []byte(pin)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PIN), []byte(param.PIN)); err != nil {
 		return "", "", errors.New("phone number and PIN doesn’t match")
 	}
 
@@ -87,4 +88,22 @@ func (s *authService) RefreshToken(refreshToken string) (string, string, error) 
 	}
 
 	return accessToken, newRefreshToken, nil
+}
+
+func (s *authService) Update(user *models.User) (*entity.User, error) {
+	existingUser, err := s.userRepository.FindByPhoneNumber(user.PhoneNumber)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	existingUser.FirstName = user.FirstName
+	existingUser.LastName = user.LastName
+	existingUser.Address = user.Address
+
+	err = s.userRepository.Update(existingUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return existingUser, nil
 }

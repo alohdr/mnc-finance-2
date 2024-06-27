@@ -2,6 +2,7 @@ package entity
 
 import (
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -13,5 +14,6 @@ type Transaction struct {
 	Remarks       string
 	BalanceBefore float64
 	BalanceAfter  float64
-	CreatedAt     time.Time
+	CreatedAt     time.Time `gorm:"column:created_at" json:"created_date"`
+	DeletedAt     gorm.DeletedAt
 }

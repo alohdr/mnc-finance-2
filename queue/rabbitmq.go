@@ -2,66 +2,76 @@
 package queue
 
 import (
-	"log"
-	"os"
-
+	"fmt"
 	"github.com/streadway/amqp"
+	"log"
+	"mnc-finance/config"
+	"os"
 )
 
-var conn *amqp.Connection
-var ch *amqp.Channel
-var QueueName = "transferQueue"
+type PublishDefinition interface {
+	ProduceMessage(queueName, routingKey string, message []byte) error
+}
+type PublishService struct {
+	rabbit config.RabbitMQ
+}
 
-func init() {
-	var err error
-	conn, err = amqp.Dial(os.Getenv("RABBITMQ_URL"))
-	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
+func NewPublishService(rabbit config.RabbitMQ) PublishDefinition {
+	return PublishService{
+		rabbit: rabbit,
 	}
+}
 
-	ch, err = conn.Channel()
+func failOnError(err error, msg string) {
 	if err != nil {
-		log.Fatalf("Failed to open a channel: %s", err)
+		log.Printf("%s: %s", msg, err)
 	}
+}
 
-	_, err = ch.QueueDeclare(
-		QueueName,
+func (p PublishService) ProduceMessage(queueName, routingKey string, message []byte) error {
+	exchangeName := os.Getenv("RabbitExchange")
+	err := p.rabbit.Channel.ExchangeDeclare(
+		exchangeName,
+		"topic",
 		true,
 		false,
 		false,
 		false,
 		nil,
 	)
-	if err != nil {
-		log.Fatalf("Failed to declare a queue: %s", err)
-	}
-}
+	failOnError(err, "Failed to declare an exchange")
 
-func Publish(body []byte) error {
-	return ch.Publish(
-		"",
-		QueueName,
+	_, err = p.rabbit.Channel.QueueDeclare(
+		queueName,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	failOnError(err, "Failed to declare a queue")
+
+	// Bind the queue to the exchange with the specified routing key
+	err = p.rabbit.Channel.QueueBind(
+		queueName,
+		routingKey,
+		exchangeName,
+		false,
+		nil,
+	)
+	failOnError(err, "Failed to bind a queue")
+	err = p.rabbit.Channel.Publish(
+		exchangeName,
+		routingKey,
 		false,
 		false,
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        body,
-		})
-}
-
-func Consume() (<-chan amqp.Delivery, error) {
-	return ch.Consume(
-		QueueName,
-		"",
-		true,
-		false,
-		false,
-		false,
-		nil,
+			Body:        message,
+		},
 	)
-}
-
-func Close() {
-	ch.Close()
-	conn.Close()
+	//}
+	failOnError(err, "Failed to publish a message")
+	fmt.Println("Message published: %s", string(message))
+	return nil
 }
