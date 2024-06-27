@@ -1,0 +1,52 @@
+services:
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq-mnc
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RabbitUsername}
+      RABBITMQ_DEFAULT_PASS: ${RabbitPassword}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - mnc-net
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  postgres:
+    image: postgres:12
+    container_name: postgres-mnc-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_READ_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_READ_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_READ_DB}
+    ports:
+      - "5432:5432"
+    networks:
+      - mnc-net
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    env_file:
+      - .env
+    container_name: mnc-be
+    image: mnc-app-be
+    ports:
+      - "${PORT}:8080"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - mnc-net
+    volumes:
+      - backend_data:/app/data
+
+networks:
+  mnc-net:
+    driver: bridge
+
+volumes:
+  backend_data:
+  postgres_data:
+  rabbitmq_data:
