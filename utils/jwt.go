@@ -3,10 +3,11 @@ package utils
 import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
+	"os"
 	"time"
 )
 
-var jwtKey = []byte("your_secret_key")
+var jwtKey = []byte(os.Getenv("JWT_SECRET"))
 
 type Claims struct {
 	UserID uuid.UUID `json:"user_id"`
@@ -43,4 +44,13 @@ func GenerateTokens(userID uuid.UUID) (string, string, error) {
 	}
 
 	return accessTokenString, refreshTokenString, nil
+}
+
+func VerifyToken(tokenString string) (*jwt.Token, error) {
+	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return jwtKey, nil
+	})
 }

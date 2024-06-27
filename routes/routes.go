@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"mnc-finance/config"
 	"mnc-finance/controllers"
+	"mnc-finance/middlewares"
 	"mnc-finance/queue"
 	"mnc-finance/repositories"
 	"mnc-finance/services"
@@ -28,9 +29,15 @@ func SetupRoutes(router *gin.Engine) {
 	router.POST("/register", authController.Register)
 	router.POST("/login", authController.Login)
 	router.POST("/refresh-token", authController.RefreshToken)
-	router.POST("/topup", transactionController.TopUp)
-	router.POST("/pay", transactionController.Payment)
-	router.POST("/transfer", transactionController.Transfer)
-	router.GET("/transactions", transactionController.TransactionsReport)
-	router.PUT("/profile/:id", authController.UpdateProfile)
+
+	// Use AuthMiddleware for routes requiring authentication
+	auth := router.Group("/")
+	auth.Use(middlewares.AuthMiddleware())
+	{
+		auth.POST("/topup", transactionController.TopUp)
+		auth.POST("/pay", transactionController.Payment)
+		auth.POST("/transfer", transactionController.Transfer)
+		auth.GET("/transactions", transactionController.TransactionsReport)
+		auth.PUT("/profile", authController.UpdateProfile)
+	}
 }
