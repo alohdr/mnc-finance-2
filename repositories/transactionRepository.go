@@ -6,7 +6,7 @@ import (
 )
 
 type TransactionRepository interface {
-	Create(transaction *entity.Transaction) error
+	Create(tx *gorm.DB, transaction *entity.Transaction) error
 	FindByUserID(userID string) ([]entity.Transaction, error)
 }
 
@@ -18,8 +18,8 @@ func NewTransactionRepository(db *gorm.DB) TransactionRepository {
 	return &transactionRepository{db}
 }
 
-func (r *transactionRepository) Create(transaction *entity.Transaction) error {
-	return r.db.Create(transaction).Error
+func (r *transactionRepository) Create(tx *gorm.DB, transaction *entity.Transaction) error {
+	return tx.Create(transaction).Error
 }
 
 func (r *transactionRepository) FindByUserID(userID string) ([]entity.Transaction, error) {

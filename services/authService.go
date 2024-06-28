@@ -2,19 +2,22 @@ package services
 
 import (
 	"errors"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"mnc-finance/entity"
 	"mnc-finance/models"
 	"mnc-finance/repositories"
 	"mnc-finance/utils"
+	"mnc-finance/utils/errorMessage"
+	"strings"
 	"time"
 )
 
 type AuthService interface {
 	Register(user *models.User) (*entity.User, error)
 	Login(param *models.Login) (string, string, error)
-	Update(param *models.User) (*entity.User, error)
+	Update(ctx *gin.Context, user *models.Profile) (*models.Profile, error)
 	RefreshToken(refreshToken string) (string, string, error)
 }
 
@@ -29,7 +32,7 @@ func NewAuthService(userRepo repositories.UserRepository) AuthService {
 func (s *authService) Register(user *models.User) (*entity.User, error) {
 	hashedPIN, err := bcrypt.GenerateFromPassword([]byte(user.PIN), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return nil, errorMessage.ErrFailedRegister
 	}
 
 	param := &entity.User{
@@ -43,7 +46,10 @@ func (s *authService) Register(user *models.User) (*entity.User, error) {
 	}
 
 	if err := s.userRepository.Create(param); err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "duplicate key") {
+			return nil, errorMessage.ErrUserExist
+		}
+		return nil, errorMessage.ErrFailedRegister
 	}
 	return param, nil
 }
@@ -64,7 +70,7 @@ func (s *authService) Login(param *models.Login) (string, string, error) {
 	}
 
 	user.RefreshToken = refreshToken
-	if err := s.userRepository.Update(user); err != nil {
+	if err := s.userRepository.UpdateUser(user); err != nil {
 		return "", "", err
 	}
 
@@ -83,15 +89,16 @@ func (s *authService) RefreshToken(refreshToken string) (string, string, error) 
 	}
 
 	user.RefreshToken = newRefreshToken
-	if err := s.userRepository.Update(user); err != nil {
+	if err := s.userRepository.UpdateUser(user); err != nil {
 		return "", "", err
 	}
 
 	return accessToken, newRefreshToken, nil
 }
 
-func (s *authService) Update(user *models.User) (*entity.User, error) {
-	existingUser, err := s.userRepository.FindByPhoneNumber(user.PhoneNumber)
+func (s *authService) Update(ctx *gin.Context, user *models.Profile) (*models.Profile, error) {
+	userID := ctx.GetString("user_id")
+	existingUser, err := s.userRepository.FindByID(userID)
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
@@ -99,11 +106,13 @@ func (s *authService) Update(user *models.User) (*entity.User, error) {
 	existingUser.FirstName = user.FirstName
 	existingUser.LastName = user.LastName
 	existingUser.Address = user.Address
+	user.UpdateDate = time.Now()
+	user.UserID = userID
 
-	err = s.userRepository.Update(existingUser)
+	err = s.userRepository.UpdateUser(existingUser)
 	if err != nil {
 		return nil, err
 	}
 
-	return existingUser, nil
+	return user, nil
 }

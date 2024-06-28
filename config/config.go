@@ -61,7 +61,8 @@ func SetupDatabase() *gorm.DB {
 		return nil
 	}
 
-	db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`)
+	//db.Exec(`SET timezone TO '+07';`)
+	//db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`)
 	db.AutoMigrate(&entity.User{}, &entity.Transaction{})
 
 	return db

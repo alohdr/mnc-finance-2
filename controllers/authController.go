@@ -25,7 +25,7 @@ func (ctrl *AuthController) Register(c *gin.Context) {
 
 	newUser, err := ctrl.authService.Register(input)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to register user")
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -67,13 +67,13 @@ func (ctrl *AuthController) RefreshToken(c *gin.Context) {
 }
 
 func (ctrl *AuthController) UpdateProfile(c *gin.Context) {
-	input := new(models.User)
+	input := new(models.Profile)
 	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid input")
 		return
 	}
 
-	updatedUser, err := ctrl.authService.Update(input)
+	updatedUser, err := ctrl.authService.Update(c, input)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to update profile")
 		return

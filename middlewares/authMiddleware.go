@@ -13,7 +13,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Get the token from the Authorization header
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"status": "UNAUTHORIZED", "message": "Authorization header is required"})
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthenticated"})
 			c.Abort()
 			return
 		}
@@ -21,7 +21,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Check the format of the token (should start with "Bearer")
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"status": "UNAUTHORIZED", "message": "Invalid authorization header format"})
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthenticated"})
 			c.Abort()
 			return
 		}
@@ -31,7 +31,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Verify the token
 		token, err := utils.VerifyToken(tokenString)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"status": "UNAUTHORIZED", "message": "Invalid token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthenticated"})
 			c.Abort()
 			return
 		}
@@ -39,7 +39,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Extract user information from the token
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"status": "UNAUTHORIZED", "message": "Invalid token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthenticated"})
 			c.Abort()
 			return
 		}

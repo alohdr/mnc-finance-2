@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"mnc-finance/models"
 	"mnc-finance/services"
 	"mnc-finance/utils"
@@ -24,7 +23,7 @@ func (ctrl *TransactionController) TopUp(c *gin.Context) {
 		return
 	}
 
-	transaction, err := ctrl.transactionService.TopUp(input)
+	transaction, err := ctrl.transactionService.TopUp(c, input)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to top up")
 		return
@@ -34,19 +33,15 @@ func (ctrl *TransactionController) TopUp(c *gin.Context) {
 }
 
 func (ctrl *TransactionController) Payment(c *gin.Context) {
-	var input struct {
-		UserID  uuid.UUID `json:"user_id"`
-		Amount  float64   `json:"amount"`
-		Remarks string    `json:"remarks"`
-	}
+	input := new(models.Payment)
 	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid input")
 		return
 	}
 
-	transaction, err := ctrl.transactionService.Payment(input.UserID, input.Amount, input.Remarks)
+	transaction, err := ctrl.transactionService.Payment(c, input)
 	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to make payment")
+		utils.ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -54,18 +49,13 @@ func (ctrl *TransactionController) Payment(c *gin.Context) {
 }
 
 func (ctrl *TransactionController) Transfer(c *gin.Context) {
-	var input struct {
-		UserID      uuid.UUID `json:"user_id"`
-		RecipientID uuid.UUID `json:"recipient_id"`
-		Amount      float64   `json:"amount"`
-		Remarks     string    `json:"remarks"`
-	}
+	input := new(models.Transfer)
 	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid input")
 		return
 	}
 
-	transaction, err := ctrl.transactionService.Transfer(input.UserID, input.RecipientID, input.Amount, input.Remarks)
+	transaction, err := ctrl.transactionService.Transfer(c, input)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to transfer")
 		return
@@ -75,13 +65,7 @@ func (ctrl *TransactionController) Transfer(c *gin.Context) {
 }
 
 func (ctrl *TransactionController) TransactionsReport(c *gin.Context) {
-	userID, err := uuid.Parse(c.Query("user_id"))
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Invalid user ID")
-		return
-	}
-
-	transactions, err := ctrl.transactionService.TransactionsReport(userID)
+	transactions, err := ctrl.transactionService.TransactionsReport(c.GetString("user_id"))
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to retrieve transactions")
 		return

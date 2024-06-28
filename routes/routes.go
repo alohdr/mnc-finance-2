@@ -21,7 +21,7 @@ func SetupRoutes(router *gin.Engine) {
 	rabbit := queue.NewPublishService(mq)
 
 	authService := services.NewAuthService(userRepo)
-	transactionService := services.NewTransactionService(transactionRepo, userRepo, rabbit)
+	transactionService := services.NewTransactionService(db, transactionRepo, userRepo, rabbit)
 
 	authController := controllers.NewAuthController(authService)
 	transactionController := controllers.NewTransactionController(transactionService)
